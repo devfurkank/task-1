@@ -33,6 +33,18 @@ export default function App() {
     }
   };
 
+  // Görev tamamlama fonksiyonu
+  const toggleTaskCompletion = (taskId) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId ? { ...task, completed: !task.completed } : task
+    ));
+  };
+
+  // Görev silme fonksiyonu
+  const deleteTask = (taskId) => {
+    setTasks(tasks.filter(task => task.id !== taskId));
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -44,9 +56,14 @@ export default function App() {
         data={tasks}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.taskItem}>
-            <Text style={styles.taskText}>{item.title}</Text>
-          </View>
+          <TouchableOpacity onPress={() => toggleTaskCompletion(item.id)}>
+            <View style={[styles.taskItem, item.completed && styles.completedTask]}>
+              <Text style={styles.taskText}>{item.title}</Text>
+              <TouchableOpacity style={styles.deleteButton} onPress={() => deleteTask(item.id)}>
+                <Text style={styles.deleteButtonText}>X</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
         )}
       />
       
@@ -89,6 +106,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  completedTask: {
+    backgroundColor: '#d3ffd3',
   },
   taskText: {
     fontSize: 18,
@@ -124,4 +147,17 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
   },
-});
+  deleteButton: {
+    backgroundColor: '#ff5252',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+})
