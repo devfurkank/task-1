@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -10,15 +10,46 @@ import {
   Platform,
   Keyboard
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function App() {
-  const [tasks, setTasks] = useState([
-    { id: '1', title: 'Alışveriş yap', completed: false },
-    { id: '2', title: 'Spor yap', completed: false },
-    { id: '3', title: 'Kitap oku', completed: false },
-    { id: '4', title: 'Yemek yap', completed: false },
-  ]);
+  const [tasks, setTasks] = useState([]);
   const [taskText, setTaskText] = useState('');
+
+  // Görevleri cihazdan yükleme fonksiyonu
+  const loadTasks = async () => {
+    try {
+      const storedTasks = await AsyncStorage.getItem('TASKS');
+      if (storedTasks !== null) {
+        setTasks(JSON.parse(storedTasks));
+        console.log('Görevler başarıyla yüklendi');
+      }
+    } catch (error) {
+      console.log('Görevleri yükleme hatası:', error);
+    }
+  };
+
+  // Görevleri cihaza kaydetme fonksiyonu
+  const saveTasks = async () => {
+    try {
+      await AsyncStorage.setItem('TASKS', JSON.stringify(tasks));
+      console.log('Görevler başarıyla kaydedildi');
+    } catch (error) {
+      console.log('Görevleri kaydetme hatası:', error);
+    }
+  };
+
+  // Uygulama başlatıldığında görevleri yükle
+  useEffect(() => {
+    loadTasks();
+  }, []);
+  
+  // Görev listesi değiştiğinde görevleri kaydet
+  useEffect(() => {
+    if (tasks.length > 0) {
+      saveTasks();
+    }
+  }, [tasks]);
 
   // Yeni görev ekleme fonksiyonu
   const addTask = () => {
@@ -58,7 +89,9 @@ export default function App() {
         renderItem={({ item }) => (
           <TouchableOpacity onPress={() => toggleTaskCompletion(item.id)}>
             <View style={[styles.taskItem, item.completed && styles.completedTask]}>
-              <Text style={styles.taskText}>{item.title}</Text>
+              <Text style={[styles.taskText, item.completed && styles.completedTaskText]}>
+                {item.title}
+              </Text>
               <TouchableOpacity style={styles.deleteButton} onPress={() => deleteTask(item.id)}>
                 <Text style={styles.deleteButtonText}>X</Text>
               </TouchableOpacity>
@@ -115,8 +148,12 @@ const styles = StyleSheet.create({
   },
   taskText: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     color: '#333',
+  },
+  completedTaskText: {
+    textDecorationLine: 'line-through',
+    color: '#888',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -160,4 +197,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-})
+});
