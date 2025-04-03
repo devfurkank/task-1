@@ -2,19 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
-  FlatList, 
   StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
+  StatusBar,
+  TouchableWithoutFeedback,
   Keyboard
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import TaskList from './components/TaskList';
+import TaskForm from './components/TaskForm';
+
+// Tema renkleri
+const COLORS = {
+  primary: '#4a86f7',
+  background: '#f5f9ff',
+  card: '#ffffff',
+  text: '#333333',
+  border: '#e1e4e8',
+  error: '#ff5252',
+  success: '#4caf50',
+  completed: '#f8f9fa',
+};
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
-  const [taskText, setTaskText] = useState('');
+  const [loading, setLoading] = useState(true);
 
   // Görevleri cihazdan yükleme fonksiyonu
   const loadTasks = async () => {
@@ -22,18 +36,18 @@ export default function App() {
       const storedTasks = await AsyncStorage.getItem('TASKS');
       if (storedTasks !== null) {
         setTasks(JSON.parse(storedTasks));
-        console.log('Görevler başarıyla yüklendi');
       }
     } catch (error) {
       console.log('Görevleri yükleme hatası:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   // Görevleri cihaza kaydetme fonksiyonu
-  const saveTasks = async () => {
+  const saveTasks = async (tasksToSave) => {
     try {
-      await AsyncStorage.setItem('TASKS', JSON.stringify(tasks));
-      console.log('Görevler başarıyla kaydedildi');
+      await AsyncStorage.setItem('TASKS', JSON.stringify(tasksToSave));
     } catch (error) {
       console.log('Görevleri kaydetme hatası:', error);
     }
@@ -46,23 +60,22 @@ export default function App() {
   
   // Görev listesi değiştiğinde görevleri kaydet
   useEffect(() => {
-    if (tasks.length > 0) {
-      saveTasks();
+    if (!loading) {
+      saveTasks(tasks);
     }
-  }, [tasks]);
+  }, [tasks, loading]);
 
   // Yeni görev ekleme fonksiyonu
-  const addTask = () => {
-    if (taskText.trim().length > 0) {
-      setTasks([...tasks, { 
-        id: Date.now().toString(), 
-        title: taskText.trim(),
-        completed: false 
-      }]);
-      setTaskText('');
-      Keyboard.dismiss();
-    }
+  // Yeni görev ekleme fonksiyonu
+const addTask = (text) => {
+  const newTask = { 
+    id: Date.now().toString(), 
+    title: text.trim(),
+    completed: false,
+    createdAt: new Date()
   };
+  setTasks([...tasks, newTask]);  // Değişiklik burada - yeni görev sona ekleniyor
+};
 
   // Görev tamamlama fonksiyonu
   const toggleTaskCompletion = (taskId) => {
@@ -77,124 +90,64 @@ export default function App() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <Text style={styles.header}>Günlük Planlayıcı</Text>
-      
-      <FlatList
-        data={tasks}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => toggleTaskCompletion(item.id)}>
-            <View style={[styles.taskItem, item.completed && styles.completedTask]}>
-              <Text style={[styles.taskText, item.completed && styles.completedTaskText]}>
-                {item.title}
-              </Text>
-              <TouchableOpacity style={styles.deleteButton} onPress={() => deleteTask(item.id)}>
-                <Text style={styles.deleteButtonText}>X</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        )}
-      />
-      
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Yeni görev ekle..."
-          value={taskText}
-          onChangeText={setTaskText}
-          onSubmitEditing={addTask}
-        />
-        <TouchableOpacity style={styles.addButton} onPress={addTask}>
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.container}
+        >
+          <View style={styles.headerContainer}>
+            <Text style={styles.header}>Günlük Planlayıcı</Text>
+            <Text style={styles.subHeader}>
+              {tasks.filter(t => !t.completed).length} görev kaldı
+            </Text>
+          </View>
+          
+          <TaskList 
+            tasks={tasks} 
+            onToggleTask={toggleTaskCompletion} 
+            onDeleteTask={deleteTask} 
+          />
+          
+          <TaskForm onAddTask={addTask} />
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-    paddingTop: 40,
-    paddingHorizontal: 10,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 10,
   },
-  header: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#333',
-  },
-  taskItem: {
-    backgroundColor: '#fff',
-    padding: 15,
-    marginVertical: 8,
-    borderRadius: 5,
+  headerContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.card,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  completedTask: {
-    backgroundColor: '#d3ffd3',
-  },
-  taskText: {
-    fontSize: 18,
+  header: {
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: COLORS.primary,
+    textAlign: 'center',
   },
-  completedTaskText: {
-    textDecorationLine: 'line-through',
+  subHeader: {
+    fontSize: 14,
     color: '#888',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    marginVertical: 10,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 5,
-    marginRight: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    fontSize: 16,
-  },
-  addButton: {
-    backgroundColor: '#007bff',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  deleteButton: {
-    backgroundColor: '#ff5252',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 5,
   },
 });
