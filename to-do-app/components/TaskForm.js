@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, Modal, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Text } from 'react-native-paper';
 import CategorySelector from './CategorySelector';
@@ -27,12 +27,13 @@ const TaskForm = ({ onAddTask }) => {
 
   /**
    * Görev ekleme fonksiyonu
-   * Metin kontrolü yaparak yeni görev ekler ve formu sıfırlar
+   * Metin kontrolü yaparak yeni görev ekler, formu sıfırlar ve klavyeyi kapatır
    */
   const handleAddTask = () => {
     if (taskText.trim().length > 0) {
       onAddTask(taskText, category, dueDate, priority);
       resetForm();
+      Keyboard.dismiss(); // Klavyeyi kapat
     }
   };
 
@@ -45,6 +46,22 @@ const TaskForm = ({ onAddTask }) => {
     setDueDate(null);
     setPriority('normal');
     setShowModal(false);
+  };
+  
+  /**
+   * Modalı kapatır ve klavyeyi gizler
+   */
+  const handleCloseModal = () => {
+    setShowModal(false);
+    Keyboard.dismiss(); // Klavyeyi kapat
+  };
+
+  /**
+   * Modalı açar ve klavyeyi gizler
+   */
+  const handleOpenModal = () => {
+    Keyboard.dismiss(); // Klavyeyi kapat
+    setShowModal(true);
   };
 
   return (
@@ -60,7 +77,7 @@ const TaskForm = ({ onAddTask }) => {
         {/* Detay Ayarlar Butonu */}
         <TouchableOpacity 
           style={styles.optionsButton} 
-          onPress={() => setShowModal(true)}
+          onPress={handleOpenModal} // Güncellendi
         >
           <Ionicons name="options-outline" size={24} color="#4a86f7" />
         </TouchableOpacity>
@@ -79,7 +96,7 @@ const TaskForm = ({ onAddTask }) => {
         visible={showModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowModal(false)}
+        onRequestClose={handleCloseModal} // Güncellendi
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -110,7 +127,7 @@ const TaskForm = ({ onAddTask }) => {
             <View style={styles.modalButtons}>
               <Button 
                 mode="outlined" 
-                onPress={() => setShowModal(false)}
+                onPress={handleCloseModal} // Güncellendi
                 style={styles.modalButton}
               >
                 Kapat

@@ -1,13 +1,12 @@
 /**
- * CategoryFilter Bileşeni
+ * CategoryFilter Bileşeni - Dikdörtgen Buton Versiyonu
  * 
  * Ana ekranda görevleri belirli bir kategoriye göre filtrelemek için kullanılır.
- * Yatay kaydırılabilir bir kategori listesi sunar.
+ * Yatay kaydırılabilir kategori butonları sunar.
  */
 
 import React from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
-import { Chip } from 'react-native-paper';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 
 // Filtre kategorileri (tümü seçeneği dahil)
 const CATEGORIES = [
@@ -26,42 +25,74 @@ const CATEGORIES = [
  */
 const CategoryFilter = ({ selectedFilter, onSelectFilter }) => {
   return (
-    // Yatay kaydırılabilir kategori filtresi
-    <ScrollView 
-      horizontal 
-      showsHorizontalScrollIndicator={false} // Kaydırma çubuğunu gizle
-      contentContainerStyle={styles.container}
-    >
-      {/* Tüm kategorileri döngüyle chip olarak göster */}
-      {CATEGORIES.map(category => (
-        <Chip
-          key={category.id}
-          selected={selectedFilter === category.id}
-          onPress={() => onSelectFilter(category.id)}
-          style={[
-            styles.chip,
-            // Seçiliyse arka plan rengini değiştir
-            { backgroundColor: selectedFilter === category.id ? category.color : 'transparent' }
-          ]}
-          // Seçiliyse metin rengini beyaz yap, değilse kategori renginde göster
-          textStyle={{ color: selectedFilter === category.id ? 'white' : category.color }}
-        >
-          {category.label}
-        </Chip>
-      ))}
-    </ScrollView>
+    <View style={styles.wrapper}>
+      {/* Yatay kaydırılabilir kategori filtresi */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false} // Kaydırma çubuğunu gizle
+        contentContainerStyle={styles.container}
+      >
+        {/* Tüm kategorileri döngüyle buton olarak göster */}
+        {CATEGORIES.map(category => (
+          <TouchableOpacity
+            key={category.id}
+            onPress={() => onSelectFilter(category.id)}
+            style={[
+              styles.categoryButton,
+              { borderColor: category.color },
+              selectedFilter === category.id && { backgroundColor: category.color }
+            ]}
+          >
+            <Text 
+              style={[
+                styles.categoryText,
+                { color: selectedFilter === category.id ? '#fff' : category.color }
+              ]}
+            >
+              {category.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      {/* Gölge efekti için ekstra bir View */}
+      <View style={styles.bottomShadow} />
+    </View>
   );
 };
 
 // Bileşen stilleri
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+  wrapper: {
+    paddingVertical: 6,
+    position: 'relative',
+    backgroundColor: '#fff',
   },
-  chip: {
+  container: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  categoryButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     marginHorizontal: 4,
     borderWidth: 1,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 60, // Minimum genişlik ayarı
+    height: 30,   // Sabit yükseklik
+  },
+  categoryText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  bottomShadow: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: '#e0e0e0',
   }
 });
 

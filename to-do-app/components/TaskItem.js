@@ -10,13 +10,13 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDate, isToday, isTomorrow, isOverdue } from '../utils/dateUtils';
 
-// Kategori renklerini tanımlama
-const CATEGORY_COLORS = {
-  genel: '#4a86f7',   // Mavi
-  is: '#f44336',      // Kırmızı
-  kisisel: '#4caf50', // Yeşil
-  alisveris: '#ff9800', // Turuncu
-  saglik: '#9c27b0'   // Mor
+// Kategori renklerini ve etiketlerini tanımlama
+const CATEGORIES = {
+  genel: { label: 'Genel', color: '#4a86f7' },
+  is: { label: 'İş', color: '#f44336' },
+  kisisel: { label: 'Kişisel', color: '#4caf50' },
+  alisveris: { label: 'Alışveriş', color: '#ff9800' },
+  saglik: { label: 'Sağlık', color: '#9c27b0' }
 };
 
 // Öncelik ikonlarını tanımlama
@@ -33,8 +33,10 @@ const PRIORITY_ICONS = {
  * @param {Function} props.onDelete - Görev silindiğinde çağrılan fonksiyon
  */
 const TaskItem = ({ task, onToggle, onDelete }) => {
-  // Kategori rengini al (tanımlı değilse varsayılan mavi renk kullan)
-  const categoryColor = CATEGORY_COLORS[task.category] || '#4a86f7';
+  // Kategori bilgilerini al (tanımlı değilse varsayılan olarak Genel kategorisini kullan)
+  const category = CATEGORIES[task.category] || CATEGORIES.genel;
+  const categoryColor = category.color;
+  const categoryLabel = category.label;
   
   /**
    * Son tarih durumunu belirler (Bugün, Yarın, Gecikti vb.)
@@ -84,9 +86,9 @@ const TaskItem = ({ task, onToggle, onDelete }) => {
             
             {/* Görev Detayları - Kategori, Tarih ve Öncelik */}
             <View style={styles.taskDetails}>
-              {/* Kategori Etiketi */}
+              {/* Kategori Etiketi - Güncellendi */}
               <View style={[styles.categoryIndicator, { backgroundColor: categoryColor }]}>
-                <Text style={styles.categoryText}>{task.category}</Text>
+                <Text style={styles.categoryText}>{categoryLabel}</Text>
               </View>
               
               {/* Tarih Bilgisi */}
