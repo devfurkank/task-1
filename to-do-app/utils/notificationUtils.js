@@ -61,26 +61,29 @@ export const scheduleTaskReminder = async (task) => {
   const hasPermission = await checkNotificationPermissions();
   if (!hasPermission) return null;
   
-  // Bildirim zamanını ayarla
-  const trigger = new Date(task.dueDate);
+  // Bildirim zamanını ayarla (GÜNCELLENDİ - Yeni format)
+  const date = new Date(task.dueDate);
   // Görev gününde sabah 9'da bildirim gönder
-  trigger.setHours(9, 0, 0);
+  date.setHours(9, 0, 0);
   
   // Eğer bildirim zamanı geçmişse bildirim gönderme
-  if (trigger <= new Date()) return null;
+  if (date <= new Date()) return null;
   
   try {
     // Önceden aynı görev için planlanmış bildirimleri iptal et
     await cancelTaskNotifications(task.id);
     
-    // Yeni bildirimi planla
+    // Yeni bildirimi planla (GÜNCELLENDİ - Yeni trigger formatı)
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Görev Hatırlatıcısı',
         body: `"${task.title}" görevi bugün son gün!`,
         data: { taskId: task.id, type: 'task-reminder' },
       },
-      trigger,
+      trigger: {
+        type: 'date',
+        timestamp: date.getTime(), // milisaniye cinsinden zaman damgası
+      },
     });
     
     return notificationId;
@@ -121,7 +124,7 @@ export const scheduleDailyReminder = async (activeTasks) => {
   const pendingTasks = activeTasks.filter(task => !task.completed).length;
   
   try {
-    // Günlük bildirimi planla (her sabah saat 8'de)
+    // Günlük bildirimi planla (GÜNCELLENDİ - Yeni trigger formatı)
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Günlük Planlayıcı',
@@ -129,9 +132,9 @@ export const scheduleDailyReminder = async (activeTasks) => {
         data: { type: 'daily-reminder' },
       },
       trigger: {
+        type: 'daily',  // Günlük tekrarlama için özel tip
         hour: 8,
         minute: 0,
-        repeats: true, // Bildirim her gün tekrarlanır
       },
     });
     
