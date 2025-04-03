@@ -1,11 +1,8 @@
 /**
  * Günlük Planlayıcı Uygulaması - Ana Uygulama Bileşeni
- * 
- * Bu dosya uygulamanın ana giriş noktasıdır. Tüm bileşenleri bir araya getirir,
- * uygulama durumunu (state) yönetir ve veri akışını koordine eder.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -23,37 +20,36 @@ import TaskList from './components/TaskList';
 import TaskForm from './components/TaskForm';
 import SearchBar from './components/SearchBar';
 import CategoryFilter from './components/CategoryFilter';
-import { scheduleTaskReminder, scheduleDailyReminder } from './utils/notificationUtils';
+import { 
+  scheduleTaskReminder, 
+  scheduleDailyReminder, 
+  addNotificationResponseListener 
+} from './utils/notificationUtils';
+
+// Tema renkleri
+const COLORS = {
+  primary: '#4a86f7',
+  background: '#f5f9ff',
+  card: '#ffffff',
+  text: '#333333',
+  border: '#e1e4e8'
+};
 
 export default function App() {
-  // =============== STATE TANIMLARI ===============
-  // Görevleri tutan ana state
-  const [tasks, setTasks] = useState([]);
+  // State tanımlamaları
+  const [tasks, setTasks] = useState([]);         // Görevler listesi
+  const [loading, setLoading] = useState(true);   // Yükleme durumu
+  const [searchQuery, setSearchQuery] = useState(''); // Arama metni
+  const [categoryFilter, setCategoryFilter] = useState('all'); // Kategori filtresi
+  const [sortBy, setSortBy] = useState('date-asc'); // Sıralama yöntemi
+  const [showSortModal, setShowSortModal] = useState(false); // Sıralama modalı
   
-  // Uygulama yüklenme durumu
-  const [loading, setLoading] = useState(true);
-  
-  // Arama sorgusu state'i
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Kategori filtresi state'i, başlangıçta tüm görevleri gösterir
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  
-  // Sıralama seçeneği state'i, başlangıçta tarihe göre artan sıralama
-  const [sortBy, setSortBy] = useState('date-asc'); // 'date-asc', 'date-desc', 'priority'
-  
-  // Sıralama modalının görünürlük state'i
-  const [showSortModal, setShowSortModal] = useState(false);
+  // Bildirim dinleyici referansı
+  const notificationListener = useRef();
 
-  // =============== TEMEL FONKSİYONLAR ===============
-  
-  /**
-   * Görevleri cihaz hafızasından yükler
-   * Uygulama ilk açıldığında çalışır
-   */
+  // Görevleri cihazdan yükleme fonksiyonu
   const loadTasks = async () => {
     try {
-      // AsyncStorage'dan görevleri oku
       const storedTasks = await AsyncStorage.getItem('TASKS');
       if (storedTasks !== null) {
         setTasks(JSON.parse(storedTasks));
@@ -61,62 +57,64 @@ export default function App() {
     } catch (error) {
       console.log('Görevleri yükleme hatası:', error);
     } finally {
-      // Yükleme tamamlandı
       setLoading(false);
     }
   };
 
-  /**
-   * Görevleri cihaz hafızasına kaydeder
-   * @param {Array} tasksToSave - Kaydedilecek görevler dizisi
-   */
+  // Görevleri cihaza kaydetme fonksiyonu
   const saveTasks = async (tasksToSave) => {
     try {
-      // Görevleri JSON formatına çevirip AsyncStorage'a kaydet
       await AsyncStorage.setItem('TASKS', JSON.stringify(tasksToSave));
     } catch (error) {
       console.log('Görevleri kaydetme hatası:', error);
     }
   };
 
-  // =============== LIFECYCLE HOOKS (YAŞAM DÖNGÜSÜ) ===============
-  
-  // Uygulama başlatıldığında görevleri yükle
+  // Uygulama başlatıldığında görevleri yükle ve bildirim dinleyici ekle
   useEffect(() => {
     loadTasks();
+    
+    // Bildirime tıklandığında yapılacak işlemler
+    notificationListener.current = addNotificationResponseListener(data => {
+      if (data.taskId) {
+        console.log('Görev bildirime tıklandı:', data.taskId);
+        // İlgili göreve odaklanabilir veya ekranda gösterebilirsiniz
+      }
+    });
+    
+    // Component unmount olduğunda
+    return () => {
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
+    };
   }, []);
   
   // Görev listesi değiştiğinde görevleri kaydet ve bildirimleri planla
   useEffect(() => {
     if (!loading) {
-      // Görevleri kaydet
       saveTasks(tasks);
       
-      // Her bir görev için son tarih bildirimi oluştur
+      // Görevler için son tarih bildirimleri planla
       tasks.forEach(task => {
         if (task.dueDate && !task.completed) {
           scheduleTaskReminder(task);
         }
       });
       
-      // Günlük özet bildirimi oluştur
+      // Günlük özet bildirimi planla
       scheduleDailyReminder(tasks);
     }
   }, [tasks, loading]);
 
-  // =============== GÖREVLERİ YÖNETİM FONKSİYONLARI ===============
-  
-  /**
-   * Filtreleme ve sıralama kriterlerine göre görevleri döndürür
-   * @returns {Array} - Filtrelenmiş ve sıralanmış görevler dizisi
-   */
+  // Arama ve filtreleme sonuçlarını getir
   const getFilteredTasks = () => {
     return tasks
       .filter(task => {
-        // Arama filtrelemesi - başlıkta arama yapın
+        // Arama filtrelemesi
         const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
         
-        // Kategori filtrelemesi - 'all' seçiliyse tüm kategorileri göster
+        // Kategori filtrelemesi
         const matchesCategory = categoryFilter === 'all' || task.category === categoryFilter;
         
         return matchesSearch && matchesCategory;
@@ -124,17 +122,14 @@ export default function App() {
       .sort((a, b) => {
         // Sıralama işlemi
         if (sortBy === 'date-asc') {
-          // Yakın tarihleri üstte göster, tarihsiz görevler en sonda
           if (!a.dueDate) return 1;
           if (!b.dueDate) return -1;
           return new Date(a.dueDate) - new Date(b.dueDate);
         } else if (sortBy === 'date-desc') {
-          // Uzak tarihleri üstte göster, tarihsiz görevler en sonda
           if (!a.dueDate) return 1;
           if (!b.dueDate) return -1;
           return new Date(b.dueDate) - new Date(a.dueDate);
         } else if (sortBy === 'priority') {
-          // Yüksek öncelikli görevleri üstte göster
           const priorityOrder = { high: 0, normal: 1, low: 2 };
           return priorityOrder[a.priority] - priorityOrder[b.priority];
         }
@@ -142,16 +137,10 @@ export default function App() {
       });
   };
 
-  /**
-   * Yeni görev ekler
-   * @param {string} text - Görev başlığı
-   * @param {string} category - Görev kategorisi
-   * @param {Date|null} dueDate - Son tarih (opsiyonel)
-   * @param {string} priority - Öncelik seviyesi
-   */
+  // Yeni görev ekleme fonksiyonu
   const addTask = (text, category = 'genel', dueDate = null, priority = 'normal') => {
     const newTask = { 
-      id: Date.now().toString(),  // Benzersiz ID oluştur
+      id: Date.now().toString(), 
       title: text.trim(),
       completed: false,
       createdAt: new Date(),
@@ -159,61 +148,49 @@ export default function App() {
       dueDate,
       priority
     };
-    setTasks([...tasks, newTask]); // Yeni görevi listeye ekle
+    setTasks([...tasks, newTask]); // Sıralama: yeni görevler sona eklenir
   };
 
-  /**
-   * Görevi tamamlandı olarak işaretler veya işareti kaldırır
-   * @param {string} taskId - Görev ID'si
-   */
+  // Görev tamamlama fonksiyonu
   const toggleTaskCompletion = (taskId) => {
     setTasks(tasks.map(task => 
-      task.id === taskId 
-        ? { ...task, completed: !task.completed } // İlgili görevin durumunu değiştir
-        : task // Diğer görevleri olduğu gibi bırak
+      task.id === taskId ? { ...task, completed: !task.completed } : task
     ));
   };
 
-  /**
-   * Görevi siler
-   * @param {string} taskId - Silinecek görevin ID'si
-   */
+  // Görev silme fonksiyonu
   const deleteTask = (taskId) => {
     setTasks(tasks.filter(task => task.id !== taskId));
   };
 
-  // =============== RENDER METODU ===============
   return (
     <PaperProvider>
       <SafeAreaView style={styles.safeArea}>
-        {/* Durum çubuğu (Status Bar) */}
-        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-        
-        {/* Ekranın boş kısmına tıklandığında klavyeyi kapat */}
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.container}
           >
-            {/* Başlık çubuğu */}
+            {/* Başlık Çubuğu */}
             <Appbar.Header>
               <Appbar.Content title="Günlük Planlayıcı" />
               <Appbar.Action icon="sort" onPress={() => setShowSortModal(true)} />
             </Appbar.Header>
             
-            {/* Arama çubuğu */}
+            {/* Arama Çubuğu */}
             <SearchBar 
               searchQuery={searchQuery} 
               onChangeSearch={setSearchQuery} 
             />
             
-            {/* Kategori filtre çubuğu */}
+            {/* Kategori Filtreleme */}
             <CategoryFilter 
               selectedFilter={categoryFilter} 
               onSelectFilter={setCategoryFilter} 
             />
             
-            {/* Görev listesi */}
+            {/* Görev Listesi */}
             <View style={styles.content}>
               <TaskList 
                 tasks={getFilteredTasks()} 
@@ -222,18 +199,16 @@ export default function App() {
               />
             </View>
             
-            {/* Görev ekleme formu */}
+            {/* Görev Ekleme Formu */}
             <TaskForm onAddTask={addTask} />
             
-            {/* Sıralama seçenekleri modalı */}
+            {/* Sıralama Seçenekleri Modalı */}
             <Modal 
               visible={showSortModal} 
               onDismiss={() => setShowSortModal(false)}
               contentContainerStyle={styles.modalContainer}
             >
               <Text style={styles.modalTitle}>Sıralama Seçenekleri</Text>
-              
-              {/* Sıralama seçenekleri */}
               <Chip 
                 selected={sortBy === 'date-asc'} 
                 onPress={() => {
@@ -272,11 +247,10 @@ export default function App() {
   );
 }
 
-// =============== STİLLER ===============
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   container: {
     flex: 1,

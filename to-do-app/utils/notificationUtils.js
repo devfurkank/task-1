@@ -1,14 +1,13 @@
 /**
- * Bildirim Yardımcı Fonksiyonları
+ * Bildirim Yardımcı Fonksiyonları - Güncel SDK uyumlu
  * 
- * Uygulama içi bildirimleri yönetmek için kullanılan fonksiyonlar.
- * Son tarih hatırlatıcıları ve günlük bildirimler oluşturur.
+ * Uygulama içi bildirimleri yönetmek için modern API kullanımı.
  */
 
 import * as Notifications from 'expo-notifications';
-import * as Permissions from 'expo-permissions';
+import * as Device from 'expo-device';
 
-// Bildirimleri yapılandır - uygulama ön planda veya arka planda olsa bile bildirimler görünür
+// Bildirimleri yapılandır
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,      // Bildirim uyarısı göster
@@ -18,26 +17,41 @@ Notifications.setNotificationHandler({
 });
 
 /**
- * Bildirim izinlerini kontrol eder ve gerekirse izin ister
- * @returns {Promise<boolean>} - İzin durumu (true: izin verildi, false: izin reddedildi)
+ * Cihazın bildirimler için uygun olup olmadığını kontrol eder
+ */
+export const isPushNotificationsAvailable = async () => {
+  if (!Device.isDevice) {
+    console.log('Bildirimler sadece fiziksel cihazlarda test edilmelidir.');
+    return false;
+  }
+  return true;
+};
+
+/**
+ * Bildirim izinlerini kontrol eder ve gerekirse ister
  */
 export const checkNotificationPermissions = async () => {
-  const { status: existingStatus } = await Permissions.getAsync(Permissions.NOTIFICATIONS);
-  let finalStatus = existingStatus;
-  
-  // Eğer izin durumu belirli değilse, izin iste
-  if (existingStatus !== 'granted') {
-    const { status } = await Permissions.askAsync(Permissions.NOTIFICATIONS);
-    finalStatus = status;
+  try {
+    if (!await isPushNotificationsAvailable()) {
+      return false;
+    }
+    
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    
+    if (existingStatus === 'granted') {
+      return true;
+    }
+    
+    const { status } = await Notifications.requestPermissionsAsync();
+    return status === 'granted';
+  } catch (error) {
+    console.log('Bildirim izinleri kontrol edilirken hata oluştu:', error);
+    return false;
   }
-  
-  return finalStatus === 'granted';
 };
 
 /**
  * Son tarihli görev için bildirim planlar
- * @param {Object} task - Görev nesnesi
- * @returns {Promise<string|null>} - Bildirim ID'si veya null
  */
 export const scheduleTaskReminder = async (task) => {
   // Son tarih yoksa bildirim oluşturma
@@ -56,14 +70,17 @@ export const scheduleTaskReminder = async (task) => {
   if (trigger <= new Date()) return null;
   
   try {
-    // Bildirimi planla
+    // Önceden aynı görev için planlanmış bildirimleri iptal et
+    await cancelTaskNotifications(task.id);
+    
+    // Yeni bildirimi planla
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Görev Hatırlatıcısı',
         body: `"${task.title}" görevi bugün son gün!`,
-        data: { taskId: task.id }, // Bildirimle ilişkili veri
+        data: { taskId: task.id, type: 'task-reminder' },
       },
-      trigger, // Bildirim zamanı
+      trigger,
     });
     
     return notificationId;
@@ -74,9 +91,26 @@ export const scheduleTaskReminder = async (task) => {
 };
 
 /**
+ * Görev ID'sine göre bildirimlerini iptal eder
+ */
+export const cancelTaskNotifications = async (taskId) => {
+  try {
+    // Planlanan tüm bildirimleri al
+    const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+    
+    // Bu görevle ilgili bildirimleri bul ve iptal et
+    for (const notification of scheduledNotifications) {
+      if (notification.content.data?.taskId === taskId) {
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+      }
+    }
+  } catch (error) {
+    console.log('Bildirimleri iptal ederken hata oluştu:', error);
+  }
+};
+
+/**
  * Günlük özet bildirimi planlar
- * @param {Array} activeTasks - Tüm görevler dizisi
- * @returns {Promise<string|null>} - Bildirim ID'si veya null
  */
 export const scheduleDailyReminder = async (activeTasks) => {
   // Bildirim izni kontrolü
@@ -92,6 +126,7 @@ export const scheduleDailyReminder = async (activeTasks) => {
       content: {
         title: 'Günlük Planlayıcı',
         body: `Bugün ${pendingTasks} tamamlanmamış göreviniz var.`,
+        data: { type: 'daily-reminder' },
       },
       trigger: {
         hour: 8,
@@ -105,4 +140,13 @@ export const scheduleDailyReminder = async (activeTasks) => {
     console.log('Günlük bildirim hatası:', error);
     return null;
   }
+};
+
+/**
+ * Bildirimlere tıklandığında tepki vermek için olay dinleyici
+ */
+export const addNotificationResponseListener = (handleNotification) => {
+  return Notifications.addNotificationResponseReceivedListener(response => {
+    handleNotification(response.notification.request.content.data);
+  });
 };
